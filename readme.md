@@ -1,37 +1,24 @@
-# nagomi-statement-parser
+# nagomi-statements
 
-Wraps [andrewscwei's rbc-statement-parser](https://github.com/andrewscwei/rbc-statement-parser) to parse RBC PDF statements and upload transactions to [nagomi-core](https://github.com/xhos/nagomi-core).
+Stateless gRPC service that parses bank statement PDFs for [nagomi-core](https://github.com/xhos/nagomi-core). It returns the account, statement period and transaction lines, and writes nothing anywhere; core stores the file and imports the lines.
 
-## Setup
+Supported: RBC chequing, savings and Visa. Parsing rules are ported from [andrewscwei/rbc-statement-parser](https://github.com/andrewscwei/rbc-statement-parser) (MIT).
+
+## Config
+
+| env | default |
+|---|---|
+| `LISTEN_ADDRESS` | `127.0.0.1:55559` |
+| `LOG_LEVEL` | `info` |
+| `LOG_FORMAT` | text, or `json` |
+
+## Dev
 
 ```bash
-cp .env.example .env
-# fill in NULL_CORE_URL, API_KEY, USER_ID
-
-go mod tidy
-cd rbc-statement-parser && uv sync
+run      # hot-reloading server
+pytest   # tests build synthetic PDFs, no real statements needed
+regen    # regenerate src/nagomi from proto/
+fmt
 ```
 
-## Usage
-
-```bash
-# PDF only
-go run cmd/main.go -pdf <folder>
-
-# CSV only
-go run cmd/main.go -csv <file>
-
-# both (CSV fills the gap between latest statement and today)
-go run cmd/main.go -pdf <folder> -csv <file>
-```
-
-Flags: `-pdf`, `-csv`, `-config` (python parser config, optional)
-
-On first run, unknown statement accounts are prompted — pick an existing Arian account or create one. The account number is registered as an alias so subsequent runs skip the prompt.
-
-## Notes
-
-- Filenames don't matter, everything is read from PDF content
-- CSV deduplication: only transactions after the latest PDF statement date per account are included
-- CSV format: standard RBC export (`Account Type, Account Number, Transaction Date, ...`)
-- CSV account numbers are matched to statements by last 4 digits
+Adding a bank: a module in `src/nagomi_statements/parsers/` with `detect` and `parse`, registered in `parsers/__init__.py`.

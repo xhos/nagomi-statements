@@ -1,0 +1,31 @@
+[project]
+name = "nagomi-statements"
+version = "0.1.0"
+description = "parses bank statement pdfs for nagomi-core"
+requires-python = ">=3.12"
+dependencies = [
+  "pymupdf",
+  "beautifulsoup4",
+  "grpcio",
+  "protobuf",
+  "googleapis-common-protos",
+]
+
+[project.scripts]
+nagomi-statements = "nagomi_statements.server:main"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+indent-width = 2
+line-length = 120
+extend-exclude = ["src/nagomi"]

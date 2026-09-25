@@ -12,21 +12,24 @@
   }:
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = nixpkgs.legacyPackages.${system};
+      python = pkgs.python3;
+      deps = ps:
+        with ps; [
+          pymupdf
+          beautifulsoup4
+          grpcio
+          protobuf
+          googleapis-common-protos
+        ];
     in {
       formatter = pkgs.alejandra;
 
       checks.pre-commit = git-hooks.lib.${system}.run {
         src = ./.;
         hooks = {
-          gotest.enable = true;
-          govet.enable = true;
           alejandra.enable = true;
-          golangci-lint = {
-            enable = true;
-            name = "golangci-lint";
-            entry = "${pkgs.golangci-lint}/bin/golangci-lint fmt";
-            types = ["go"];
-          };
+          ruff.enable = true;
+          ruff-format.enable = true;
 
           nix-build = {
             enable = true;
@@ -38,45 +41,43 @@
             });
             stages = ["pre-push"];
             pass_filenames = false;
-            files = "go\\.(mod|sum)|flake\\.nix";
+            files = "\\.py$|pyproject\\.toml|flake\\.nix";
           };
         };
       };
 
-      packages.default = pkgs.buildGoModule {
-        pname = "nagomi-statement-parser";
+      packages.default = python.pkgs.buildPythonApplication {
+        pname = "nagomi-statements";
         version = self.shortRev or self.dirtyShortRev or "dev";
         src = ./.;
-        vendorHash = "sha256-j1B9wTOC8E5eYyPRhfi4GHyz/iiRY4MlG1Yg3lNugpI=";
-        subPackages = ["cmd"];
+        pyproject = true;
+        build-system = [python.pkgs.setuptools];
+        dependencies = deps python.pkgs;
+        nativeCheckInputs = [python.pkgs.pytestCheckHook];
+        meta.mainProgram = "nagomi-statements";
       };
 
       devShells.default = pkgs.mkShell {
         shellHook = self.checks.${system}.pre-commit.shellHook;
-        env.UV_CACHE_DIR = ".uv-cache";
+        env.PYTHONPATH = "src";
         packages = with pkgs; [
-          go
-          air
-          python3
+          (python.withPackages (ps: deps ps ++ [ps.pytest ps.watchfiles]))
           buf
+          grpc # grpc_python_plugin
+          protobuf # protoc, for the builtin python plugins
           ruff
-          uv
-          golangci-lint
-
-          protoc-gen-go-grpc
-          protoc-gen-go
 
           (writeShellScriptBin "regen" ''
-            rm -rf internal/gen/
+            rm -rf src/nagomi
             ${buf}/bin/buf generate
           '')
 
           (writeShellScriptBin "run" ''
-            exec ${air}/bin/air -build.cmd "go build -o ./tmp/main ./cmd/main.go" -build.bin ./tmp/main
+            exec watchfiles --filter python "python -m nagomi_statements.server" src
           '')
 
           (writeShellScriptBin "fmt" ''
-            ${golangci-lint}/bin/golangci-lint fmt
+            ${ruff}/bin/ruff check --fix . && ${ruff}/bin/ruff format .
           '')
 
           (writeShellScriptBin "bump-protos" ''
@@ -87,12 +88,6 @@
             git commit -m "chore: bump proto files"
             git push
           '')
-        ];
-
-        # Required for pymupdf binary dependencies
-        LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
-          pkgs.stdenv.cc.cc.lib
-          pkgs.zlib
         ];
       };
     });

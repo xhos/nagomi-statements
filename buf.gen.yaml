@@ -1,23 +1,15 @@
 version: v2
 
-managed:
-  enabled: true
-  override:
-    - file_option: go_package_prefix
-      module: buf.build/xhos/nagomi-protos
-      value: nagomi-statement-parser/internal/gen
-
 inputs:
   - directory: proto
+    paths:
+      - proto/nagomi/v1/enums.proto
+      - proto/nagomi/v1/statement_parser.proto
 
 plugins:
-  - local: protoc-gen-go
-    out: internal/gen
-    opt:
-      - paths=source_relative
-
-  - local: protoc-gen-go-grpc
-    out: internal/gen
-    opt:
-      - paths=source_relative
-      - require_unimplemented_servers=false
+  - protoc_builtin: python
+    out: src
+  - protoc_builtin: pyi
+    out: src
+  - local: grpc_python_plugin
+    out: src

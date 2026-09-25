@@ -2,15 +2,14 @@
 .direnv
 .pre-commit-config.yaml
 
-input/
-.env
-
-account-mappings.txt
 
 # python
 __pycache__/
 .uv-cache/
 .ruff_cache/
+.pytest_cache/
+*.egg-info/
+build/
 
 result/
 tmp/
