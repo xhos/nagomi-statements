@@ -21,6 +21,7 @@
           protobuf
           googleapis-common-protos
         ];
+      devPython = python.withPackages (ps: deps ps ++ [ps.pytest ps.watchfiles]);
     in {
       formatter = pkgs.alejandra;
 
@@ -61,7 +62,7 @@
         shellHook = self.checks.${system}.pre-commit.shellHook;
         env.PYTHONPATH = "src";
         packages = with pkgs; [
-          (python.withPackages (ps: deps ps ++ [ps.pytest ps.watchfiles]))
+          devPython
           buf
           grpc # grpc_python_plugin
           protobuf # protoc, for the builtin python plugins
@@ -73,7 +74,9 @@
           '')
 
           (writeShellScriptBin "run" ''
-            exec watchfiles --filter python "python -m nagomi_statements.server" src
+            # absolute interpreter: watchfiles' wrapper changes PATH for the child,
+            # so a bare `python` would resolve to one without the dependencies
+            exec ${devPython}/bin/watchfiles --filter python "${devPython}/bin/python -m nagomi_statements.server" src
           '')
 
           (writeShellScriptBin "fmt" ''
