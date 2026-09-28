@@ -21,12 +21,20 @@ def make_pdf(rows: list[tuple[float, float, str]]) -> bytes:
 DATE_X, DESC_X, WITHDRAWAL_X, DEPOSIT_X, BALANCE_X = 15, 70, 300, 400, 500
 
 
-def chequing_pdf(kind_marker: str, period: str, rows: list[tuple]) -> bytes:
+def chequing_pdf(kind_marker: str, period: str, rows: list[tuple], summary: tuple[str, str] | None = None) -> bytes:
   content = [
     (40, 40, kind_marker),
     (40, 55, period),
     (40, 70, "Account number: 05172-5163878"),
   ]
+  if summary:
+    opening, closing = summary
+    content += [
+      (300, 40, "Your opening balance on December 15, 2025"),
+      (500, 40, opening),
+      (300, 55, "Your closing balance on January 14, 2026"),
+      (500, 55, closing),
+    ]
   y = 120
   for tx_date, description, withdrawal, deposit in rows:
     if tx_date:
@@ -61,6 +69,7 @@ def test_chequing():
   s = parsers.parse(pdf)
 
   assert s.parser == "rbc-chequing"
+  assert (s.opening_balance_cents, s.closing_balance_cents) == (None, None)
   assert s.account_type == "chequing"
   assert s.account_number == "05172-5163878"
   assert (s.period_start, s.period_end) == (date(2025, 12, 15), date(2026, 1, 14))
@@ -71,6 +80,27 @@ def test_chequing():
     # january rolls into the next year
     (date(2026, 1, 3), -12000, "e-Transfer sent"),
   ]
+
+
+@pytest.mark.parametrize(
+  ("opening", "closing", "want"),
+  [
+    ("$5.75", "= $1,240.00", (575, 124000)),
+    # overdrawn
+    ("-$12.50", "= -$0.25", (-1250, -25)),
+  ],
+)
+def test_chequing_balances(opening, closing, want):
+  pdf = chequing_pdf(
+    "Your RBC personal banking account statement",
+    "From December 15, 2025 to January 14, 2026",
+    [("16 Dec", "Payroll Deposit ACME", None, "2,500.00")],
+    summary=(opening, closing),
+  )
+
+  s = parsers.parse(pdf)
+
+  assert (s.opening_balance_cents, s.closing_balance_cents) == want
 
 
 def test_savings_detected():
@@ -87,12 +117,16 @@ def test_savings_detected():
   assert [line.amount_cents for line in s.lines] == [123]
 
 
-def test_visa():
-  rows = [
+def visa_rows() -> list[tuple[float, float, str]]:
+  return [
     (40, 40, "RBC Visa Classic Low Rate"),
     (40, 55, "STATEMENT FROM DEC 20, 2025 TO JAN 19, 2026"),
     (40, 70, "4516 12** **** 9876"),
   ]
+
+
+def test_visa():
+  rows = visa_rows() + [(300, 40, "PREVIOUS STATEMENT BALANCE $1,000.00"), (300, 55, "NEW BALANCE $584.20")]
   y = 120
   for tx_date, posted, description, amount in [
     ("DEC 21", "DEC 22", "GROCERY STORE 74500015355000000000012", "$84.20"),
@@ -106,11 +140,27 @@ def test_visa():
   assert s.parser == "rbc-visa"
   assert s.account_type == "credit_card"
   assert s.account_number == "9876"
+  # owing is negative from the account's side
+  assert (s.opening_balance_cents, s.closing_balance_cents) == (-100000, -58420)
   assert (s.period_start, s.period_end) == (date(2025, 12, 20), date(2026, 1, 19))
   assert [(line.date, line.posting_date, line.amount_cents, line.description) for line in s.lines] == [
     (date(2025, 12, 21), date(2025, 12, 22), -8420, "GROCERY STORE"),
     (date(2026, 1, 2), date(2026, 1, 3), 50000, "PAYMENT - THANK YOU"),
   ]
+
+
+def test_visa_balance_in_credit():
+  rows = visa_rows() + [(300, 40, "PREVIOUS STATEMENT BALANCE $0.00"), (300, 55, "NEW BALANCE -$25.00")]
+
+  s = parsers.parse(make_pdf(rows))
+
+  assert (s.opening_balance_cents, s.closing_balance_cents) == (0, 2500)
+
+
+def test_visa_without_balances():
+  s = parsers.parse(make_pdf(visa_rows()))
+
+  assert (s.opening_balance_cents, s.closing_balance_cents) == (None, None)
 
 
 def test_visa_line_strips_reference_code():

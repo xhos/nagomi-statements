@@ -42,6 +42,15 @@ def extract_account_number(text: str) -> str:
   return ""
 
 
+def extract_balance(text: str, label: str) -> int | None:
+  # printed as owed, e.g. "NEW BALANCE $1,234.56", or "-$12.00" when in credit
+  regex = rf"{label}\s*(-?\$[\d,]+\.\d{{2}})"
+  if match := re.search(regex, text.replace("\xa0", " "), re.IGNORECASE):
+    # owing is negative from the account's side, like charges in the lines
+    return -parse_cents(match[1])
+  return None
+
+
 def _dated(short: str, start: date) -> date:
   # statements can span new year; a month before the start month is next year
   ref = _parse_date(f"{short} {start.year}")
@@ -94,5 +103,7 @@ def parse(pdf: Pdf) -> Statement:
     account_number=extract_account_number(text),
     period_start=start,
     period_end=end,
+    opening_balance_cents=extract_balance(text, "previous (?:statement|account) balance"),
+    closing_balance_cents=extract_balance(text, "new balance"),
     lines=parse_lines(text, start),
   )

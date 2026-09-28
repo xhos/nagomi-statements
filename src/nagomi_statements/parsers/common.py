@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -34,7 +35,7 @@ class Statement:
 
 
 def parse_cents(string: str) -> int:
-  cleaned = string.replace("$", "").replace(",", "").strip()
+  cleaned = re.sub(r"[\s$,]", "", string)
   return int((Decimal(cleaned) * 100).to_integral_value())
 
 

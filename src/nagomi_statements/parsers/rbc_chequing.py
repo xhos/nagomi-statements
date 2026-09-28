@@ -48,6 +48,16 @@ def extract_account_number(text: str) -> str:
   return ""
 
 
+def extract_balance(text: str, which: str) -> int | None:
+  # summary box: "Your opening balance on July 12, 2024\n$5.75",
+  # "Your closing balance on August 14, 2024\n= $0.00"
+  regex = rf"your {which} balance on [^\n]*\n\s*=?\s*(-\s*)?(\$?[\d,]+\.\d{{2}})"
+  if match := re.search(regex, text, re.IGNORECASE):
+    cents = parse_cents(match[2])
+    return -cents if match[1] else cents
+  return None
+
+
 def _left_padding(soup: BeautifulSoup) -> float:
   style = soup.p.attrs.get("style", "")
   match = re.search(r"left:([0-9.]+)pt", style, re.IGNORECASE)
@@ -111,14 +121,17 @@ def parse_lines(html: str, start: date) -> list[Line]:
 
 def parse(pdf: Pdf, kind: str) -> Statement:
   html = pdf.html()
+  text = pdf.text()
   start, end = extract_period(html)
 
   return Statement(
     parser=f"rbc-{kind}",
     bank="RBC",
     account_type=kind,
-    account_number=extract_account_number(pdf.text()),
+    account_number=extract_account_number(text),
     period_start=start,
     period_end=end,
+    opening_balance_cents=extract_balance(text, "opening"),
+    closing_balance_cents=extract_balance(text, "closing"),
     lines=parse_lines(html, start),
   )
