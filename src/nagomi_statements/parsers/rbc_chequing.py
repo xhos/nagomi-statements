@@ -22,7 +22,8 @@ CHEQUING_MARKER = "personal banking account statement"
 
 
 def detect(text: str) -> str | None:
-  header = text[:3000].lower()
+  # the title can wrap: "Your RBC personal banking\naccount statement"
+  header = re.sub(r"\s+", " ", text[:3000].lower())
   if SAVINGS_MARKER in header:
     return "savings"
   if CHEQUING_MARKER in header:
@@ -50,8 +51,9 @@ def extract_account_number(text: str) -> str:
 
 def extract_balance(text: str, which: str) -> int | None:
   # summary box: "Your opening balance on July 12, 2024\n$5.75",
-  # "Your closing balance on August 14, 2024\n= $0.00"
-  regex = rf"your {which} balance on [^\n]*\n\s*=?\s*(-\s*)?(\$?[\d,]+\.\d{{2}})"
+  # "Your closing balance on August 14, 2024\n= $0.00". an account's first
+  # statement drops the date: "Your opening balance\n$0.00"
+  regex = rf"your {which} balance(?: on [^\n]*)?\n\s*=?\s*(-\s*)?(\$?[\d,]+\.\d{{2}})"
   if match := re.search(regex, text, re.IGNORECASE):
     cents = parse_cents(match[2])
     return -cents if match[1] else cents

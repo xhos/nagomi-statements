@@ -21,7 +21,13 @@ def make_pdf(rows: list[tuple[float, float, str]]) -> bytes:
 DATE_X, DESC_X, WITHDRAWAL_X, DEPOSIT_X, BALANCE_X = 15, 70, 300, 400, 500
 
 
-def chequing_pdf(kind_marker: str, period: str, rows: list[tuple], summary: tuple[str, str] | None = None) -> bytes:
+def chequing_pdf(
+  kind_marker: str,
+  period: str,
+  rows: list[tuple],
+  summary: tuple[str, str] | None = None,
+  opening_label: str = "Your opening balance on December 15, 2025",
+) -> bytes:
   content = [
     (40, 40, kind_marker),
     (40, 55, period),
@@ -30,7 +36,7 @@ def chequing_pdf(kind_marker: str, period: str, rows: list[tuple], summary: tupl
   if summary:
     opening, closing = summary
     content += [
-      (300, 40, "Your opening balance on December 15, 2025"),
+      (300, 40, opening_label),
       (500, 40, opening),
       (300, 55, "Your closing balance on January 14, 2026"),
       (500, 55, closing),
@@ -103,6 +109,32 @@ def test_chequing_balances(opening, closing, want):
   assert (s.opening_balance_cents, s.closing_balance_cents) == want
 
 
+def test_chequing_first_statement_opening_balance():
+  pdf = chequing_pdf(
+    "Your RBC personal banking account statement",
+    "From December 15, 2025 to January 14, 2026",
+    [("16 Dec", "Payroll Deposit ACME", None, "2,500.00")],
+    summary=("$0.00", "= $2,500.00"),
+    opening_label="Your opening balance",
+  )
+
+  s = parsers.parse(pdf)
+
+  assert (s.opening_balance_cents, s.closing_balance_cents) == (0, 250000)
+
+
+def test_chequing_title_wraps():
+  pdf = chequing_pdf(
+    "Your RBC personal banking\naccount statement",
+    "From December 15, 2025 to January 14, 2026",
+    [("16 Dec", "Payroll Deposit ACME", None, "2,500.00")],
+  )
+
+  s = parsers.parse(pdf)
+
+  assert s.parser == "rbc-chequing"
+
+
 def test_savings_detected():
   pdf = chequing_pdf(
     "Your RBC personal savings account statement",
@@ -155,6 +187,15 @@ def test_visa_balance_in_credit():
   s = parsers.parse(make_pdf(rows))
 
   assert (s.opening_balance_cents, s.closing_balance_cents) == (0, 2500)
+
+
+def test_visa_credit_balance_label():
+  # in credit, the closing balance is labelled "CREDIT BALANCE" and "NEW BALANCE" is absent
+  rows = visa_rows() + [(300, 40, "PREVIOUS ACCOUNT BALANCE $699.67"), (300, 55, "CREDIT BALANCE -$8.41")]
+
+  s = parsers.parse(make_pdf(rows))
+
+  assert (s.opening_balance_cents, s.closing_balance_cents) == (-69967, 841)
 
 
 def test_visa_without_balances():

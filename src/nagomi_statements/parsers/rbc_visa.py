@@ -104,6 +104,7 @@ def parse(pdf: Pdf) -> Statement:
     period_start=start,
     period_end=end,
     opening_balance_cents=extract_balance(text, "previous (?:statement|account) balance"),
-    closing_balance_cents=extract_balance(text, "new balance"),
+    # printed as "CREDIT BALANCE -$8.41" instead when the card is in credit
+    closing_balance_cents=extract_balance(text, "(?:new|credit) balance"),
     lines=parse_lines(text, start),
   )
