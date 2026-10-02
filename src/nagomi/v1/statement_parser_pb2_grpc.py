@@ -7,9 +7,7 @@ from nagomi.v1 import statement_parser_pb2 as nagomi_dot_v1_dot_statement__parse
 
 
 class StatementParserServiceStub(object):
-  """internal: nagomi-core -> nagomi-statements. stateless, never writes anywhere.
-  an unrecognised document is INVALID_ARGUMENT.
-  """
+  """Missing associated documentation comment in .proto file."""
 
   def __init__(self, channel):
     """Constructor.
@@ -26,9 +24,7 @@ class StatementParserServiceStub(object):
 
 
 class StatementParserServiceServicer(object):
-  """internal: nagomi-core -> nagomi-statements. stateless, never writes anywhere.
-  an unrecognised document is INVALID_ARGUMENT.
-  """
+  """Missing associated documentation comment in .proto file."""
 
   def ParseStatement(self, request, context):
     """Missing associated documentation comment in .proto file."""
@@ -52,9 +48,7 @@ def add_StatementParserServiceServicer_to_server(servicer, server):
 
 # This class is part of an EXPERIMENTAL API.
 class StatementParserService(object):
-  """internal: nagomi-core -> nagomi-statements. stateless, never writes anywhere.
-  an unrecognised document is INVALID_ARGUMENT.
-  """
+  """Missing associated documentation comment in .proto file."""
 
   @staticmethod
   def ParseStatement(
