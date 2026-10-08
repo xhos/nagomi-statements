@@ -50,6 +50,10 @@ def to_proto(s: parsers.Statement) -> statement_parser_pb2.ParsedStatement:
     )
     if line.posting_date:
       out.posting_date.CopyFrom(_date(line.posting_date))
+    if line.foreign_currency is not None:
+      out.foreign_amount_cents = abs(line.foreign_amount_cents)
+      out.foreign_currency = line.foreign_currency
+      out.exchange_rate = line.exchange_rate
   return msg
 
 

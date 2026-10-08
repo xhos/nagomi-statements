@@ -6,6 +6,7 @@ import pytest
 from nagomi_statements import parsers
 from nagomi_statements.parsers import rbc_visa
 from nagomi_statements.parsers.common import parse_cents
+from nagomi_statements.server import to_proto
 
 
 def make_pdf(rows: list[tuple[float, float, str]]) -> bytes:
@@ -209,6 +210,64 @@ def test_visa_line_strips_reference_code():
   assert line is not None
   assert line.description == "COFFEE"
   assert line.amount_cents == -450
+
+
+def test_visa_line_extracts_foreign_currency():
+  line = rbc_visa.parse_line(
+    "JUL 30 JUL 31 SEVEN-ELEVEN TOKYO Foreign Currency-JPY 172 Exchange rate-.009244 12345678901234567890123 $1.59",
+    date(2024, 7, 1),
+  )
+  assert line is not None
+  assert line.description == "SEVEN-ELEVEN TOKYO"
+  assert line.amount_cents == -159
+  assert (line.foreign_amount_cents, line.foreign_currency, line.exchange_rate) == (17200, "JPY", 0.009244)
+
+
+def test_visa_line_foreign_currency_with_decimals():
+  line = rbc_visa.parse_line(
+    "MAR 03 MAR 04 AMAZON.COM SEATTLE Foreign Currency-USD 1,234.56 Exchange rate-1.372300 $1,694.19",
+    date(2025, 3, 1),
+  )
+  assert line is not None
+  assert line.description == "AMAZON.COM SEATTLE"
+  assert (line.foreign_amount_cents, line.foreign_currency, line.exchange_rate) == (123456, "USD", 1.3723)
+
+
+def test_visa_foreign_currency_on_its_own_line():
+  rows = visa_rows()
+  rows += [
+    (15, 120, "JUL 30"),
+    (15, 130, "JUL 31"),
+    (80, 120, "SEVEN-ELEVEN TOKYO"),
+    (80, 130, "Foreign Currency-JPY 172 Exchange rate-.009244"),
+    (500, 120, "$1.59"),
+  ]
+
+  s = parsers.parse(make_pdf(rows))
+
+  assert [(line.description, line.foreign_amount_cents, line.foreign_currency) for line in s.lines] == [
+    ("SEVEN-ELEVEN TOKYO", 17200, "JPY"),
+  ]
+
+
+def test_to_proto_foreign_currency():
+  line = rbc_visa.parse_line(
+    "JUL 30 JUL 31 SEVEN-ELEVEN TOKYO Foreign Currency-JPY 172 Exchange rate-.009244 $1.59", date(2024, 7, 1)
+  )
+  plain = rbc_visa.parse_line("JUL 30 JUL 31 COFFEE $4.50", date(2024, 7, 1))
+  s = parsers.Statement(
+    parser="rbc-visa",
+    bank="RBC",
+    account_type="credit_card",
+    account_number="9876",
+    period_start=date(2024, 7, 1),
+    period_end=date(2024, 7, 31),
+    lines=[line, plain],
+  )
+
+  fx, cad = to_proto(s).lines
+  assert (fx.foreign_amount_cents, fx.foreign_currency, fx.exchange_rate) == (17200, "JPY", 0.009244)
+  assert not cad.HasField("foreign_currency")
 
 
 def test_unrecognized():

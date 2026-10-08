@@ -12,6 +12,8 @@ PAT_DATE_SHORT = rf"(?:{PAT_MONTH}) {PAT_DAY}"
 PAT_DATE_LONG = rf"((?:{PAT_MONTH})) ({PAT_DAY})(?:, )?({PAT_YEAR})?"
 PAT_AMOUNT = r"-?\$[\d,]+\.\d{2}"
 PAT_CODE = r"\d{23}"
+# printed under foreign purchases, e.g. "Foreign Currency-JPY 172 Exchange rate-.009244"
+PAT_FOREIGN = r"foreign currency-([a-z]{3}) ([\d,]+(?:\.\d+)?) exchange rate-(\d*\.?\d+)"
 PAT_PERIOD = rf"statement from ({PAT_DATE_LONG}) to ({PAT_DATE_LONG})"
 
 
@@ -71,13 +73,20 @@ def parse_line(line: str, start: date) -> Line | None:
   code = res.group(0) if (res := re.search(PAT_CODE, body)) else None
   description = body.replace(f" {code}", "") if code else body
 
-  return Line(
+  line = Line(
     date=_dated(tx_date, start),
     posting_date=_dated(posting_date, start),
     # charges are printed positive, payments negative
     amount_cents=-parse_cents(amount),
-    description=description.strip(),
+    description=description,
   )
+  if foreign := re.search(PAT_FOREIGN, description, re.IGNORECASE):
+    line.description = description[: foreign.start()] + description[foreign.end() :]
+    line.foreign_currency = foreign[1].upper()
+    line.foreign_amount_cents = parse_cents(foreign[2])
+    line.exchange_rate = float(foreign[3])
+  line.description = " ".join(line.description.split())
+  return line
 
 
 def parse_lines(text: str, start: date) -> list[Line]:

@@ -45,15 +45,21 @@ class ParsedStatement(_message.Message):
     def __init__(self, parser: _Optional[str] = ..., bank: _Optional[str] = ..., account_type: _Optional[_Union[_enums_pb2.AccountType, str]] = ..., account_number: _Optional[str] = ..., period_start: _Optional[_Union[_date_pb2.Date, _Mapping]] = ..., period_end: _Optional[_Union[_date_pb2.Date, _Mapping]] = ..., currency: _Optional[str] = ..., opening_balance_cents: _Optional[int] = ..., closing_balance_cents: _Optional[int] = ..., lines: _Optional[_Iterable[_Union[ParsedStatementLine, _Mapping]]] = ...) -> None: ...
 
 class ParsedStatementLine(_message.Message):
-    __slots__ = ("date", "posting_date", "amount_cents", "direction", "description")
+    __slots__ = ("date", "posting_date", "amount_cents", "direction", "description", "foreign_amount_cents", "foreign_currency", "exchange_rate")
     DATE_FIELD_NUMBER: _ClassVar[int]
     POSTING_DATE_FIELD_NUMBER: _ClassVar[int]
     AMOUNT_CENTS_FIELD_NUMBER: _ClassVar[int]
     DIRECTION_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    FOREIGN_AMOUNT_CENTS_FIELD_NUMBER: _ClassVar[int]
+    FOREIGN_CURRENCY_FIELD_NUMBER: _ClassVar[int]
+    EXCHANGE_RATE_FIELD_NUMBER: _ClassVar[int]
     date: _date_pb2.Date
     posting_date: _date_pb2.Date
     amount_cents: int
     direction: _enums_pb2.TransactionDirection
     description: str
-    def __init__(self, date: _Optional[_Union[_date_pb2.Date, _Mapping]] = ..., posting_date: _Optional[_Union[_date_pb2.Date, _Mapping]] = ..., amount_cents: _Optional[int] = ..., direction: _Optional[_Union[_enums_pb2.TransactionDirection, str]] = ..., description: _Optional[str] = ...) -> None: ...
+    foreign_amount_cents: int
+    foreign_currency: str
+    exchange_rate: float
+    def __init__(self, date: _Optional[_Union[_date_pb2.Date, _Mapping]] = ..., posting_date: _Optional[_Union[_date_pb2.Date, _Mapping]] = ..., amount_cents: _Optional[int] = ..., direction: _Optional[_Union[_enums_pb2.TransactionDirection, str]] = ..., description: _Optional[str] = ..., foreign_amount_cents: _Optional[int] = ..., foreign_currency: _Optional[str] = ..., exchange_rate: _Optional[float] = ...) -> None: ...

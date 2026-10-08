@@ -17,6 +17,11 @@ class Line:
   amount_cents: int
   description: str
   posting_date: date | None = None
+  # hundredths of the foreign currency, like amount_cents, even for JPY
+  foreign_amount_cents: int | None = None
+  foreign_currency: str | None = None
+  # foreign_currency to the statement's currency
+  exchange_rate: float | None = None
 
 
 @dataclass
